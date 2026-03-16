@@ -4,7 +4,23 @@ import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestor
 import { Report } from '../types';
 import ReportCard from '../components/ReportCard';
 import { DEFAULT_CORRUPTION_TYPES } from '../constants';
-import { TrendingUp, Clock, MapPin as MapPinIcon, Search, Flame, BarChart3 } from 'lucide-react';
+import { TrendingUp, Clock, MapPin as MapPinIcon, Search, AlertTriangle, BarChart3, Banknote, Shield, Landmark, GraduationCap, Hospital, Building2, Home, Stamp, Zap, Droplets, Bus, Scale, FolderOpen } from 'lucide-react';
+
+const CORRUPTION_ICONS: Record<string, React.ReactNode> = {
+  'ঘুষ': <Banknote size={14} />,
+  'পুলিশ': <Shield size={14} />,
+  'রাজনৈতিক': <Landmark size={14} />,
+  'শিক্ষা': <GraduationCap size={14} />,
+  'স্বাস্থ্যসেবা': <Hospital size={14} />,
+  'সরকারি অফিস': <Building2 size={14} />,
+  'ভূমি অফিস': <Home size={14} />,
+  'পাসপোর্ট অফিস': <Stamp size={14} />,
+  'বিদ্যুৎ বিভাগ': <Zap size={14} />,
+  'ওয়াসা/পানি': <Droplets size={14} />,
+  'পরিবহন': <Bus size={14} />,
+  'বিচার বিভাগ': <Scale size={14} />,
+  'অন্যান্য': <FolderOpen size={14} />,
+};
 
 export default function FeedPage() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -53,34 +69,34 @@ export default function FeedPage() {
   const todayReports = reports.filter(r => new Date(r.date).toDateString() === new Date().toDateString()).length;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Hero Stats Banner */}
-      <div className="mx-4 mt-4 mb-4 bg-gradient-to-r from-red-600 via-red-500 to-orange-500 rounded-2xl p-4 shadow-lg relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-50" />
+    <div className="max-w-4xl mx-auto">
+      {/* Hero Stats Banner - Red only */}
+      <div className="mx-4 mt-4 mb-4 bg-red-600 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-red-700/50 to-red-500/50" />
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <Flame size={24} className="text-yellow-200" />
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <AlertTriangle size={28} className="text-white" />
             </div>
             <div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest">আজকের দুর্নীতি</p>
-              <p className="text-3xl font-black text-white leading-none">{todayReports}</p>
+              <p className="text-white/80 text-[11px] font-bold uppercase tracking-widest">আজকের রিপোর্ট</p>
+              <p className="text-4xl font-black text-white leading-none mt-0.5">{todayReports}</p>
             </div>
           </div>
-          <div className="h-12 w-px bg-white/20" />
+          <div className="h-14 w-px bg-white/30" />
           <div className="flex items-center gap-3">
             <div>
-              <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest text-right">মোট রিপোর্ট</p>
-              <p className="text-3xl font-black text-white leading-none text-right">{reports.length}</p>
+              <p className="text-white/80 text-[11px] font-bold uppercase tracking-widest text-right">মোট রিপোর্ট</p>
+              <p className="text-4xl font-black text-white leading-none text-right mt-0.5">{reports.length}</p>
             </div>
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <BarChart3 size={24} className="text-white" />
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <BarChart3 size={28} className="text-white" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Corruption Type Filter - Horizontal scroll chips */}
+      {/* Corruption Type Filter - with Lucide icons */}
       <div className="px-4 mb-3">
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           <button
@@ -91,7 +107,7 @@ export default function FeedPage() {
                 : 'bg-white text-gray-600 border-gray-200 hover:border-red-200'
             }`}
           >
-            🔥 সব
+            <AlertTriangle size={14} /> সব
           </button>
           {DEFAULT_CORRUPTION_TYPES.map(type => (
             <button
@@ -104,7 +120,7 @@ export default function FeedPage() {
               }`}
               style={filterType === type.name ? { backgroundColor: type.color, borderColor: type.color } : {}}
             >
-              <span>{type.icon}</span>
+              {CORRUPTION_ICONS[type.name] || <FolderOpen size={14} />}
               <span>{type.name}</span>
             </button>
           ))}
@@ -126,14 +142,14 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* Reports */}
+      {/* Reports - 2 columns on desktop */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="text-gray-500 font-medium">লোড হচ্ছে...</p>
         </div>
       ) : filteredReports.length > 0 ? (
-        <div className="divide-y divide-gray-100 md:px-4 md:space-y-4 md:divide-y-0">
+        <div className="md:px-4 md:grid md:grid-cols-2 md:gap-4">
           {filteredReports.map(report => (
             <ReportCard key={report.id} report={report} />
           ))}
