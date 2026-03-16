@@ -7,7 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import {
   MapPin, Calendar, Share2, AlertCircle, ArrowLeft,
   ThumbsUp, ThumbsDown, HelpCircle, Navigation as NavIcon,
-  X, Maximize2, Play, ExternalLink, User
+  X, Maximize2, Play, ExternalLink, UserX
 } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Navigation as SwiperNavigation, Pagination } from 'swiper/modules';
@@ -15,6 +15,8 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import L from 'leaflet';
+import { generateNickname } from '../lib/nicknames';
+import { getViralShareMessage } from '../lib/shareMessages';
 
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,9 +25,17 @@ export default function ReportDetailPage() {
   const [voted, setVoted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const navigate = useNavigate();
+
+  const nickname = report ? generateNickname(report.id) : '';
+
+  const triggerToast = (msg: string) => {
+    setShowToast(msg);
+    setTimeout(() => setShowToast(null), 2500);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => setIsAdmin(!!user));
@@ -79,8 +89,10 @@ export default function ReportDetailPage() {
       const votedReports = JSON.parse(localStorage.getItem('votedReports') || '{}');
       votedReports[id] = true;
       localStorage.setItem('votedReports', JSON.stringify(votedReports));
+      triggerToast('✅ আপনার ভোট সফলভাবে জমা হয়েছে!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `reports/${id}`);
+      triggerToast('❌ ভোট দিতে সমস্যা হয়েছে!');
     }
   };
 
@@ -133,11 +145,12 @@ export default function ReportDetailPage() {
   const shareReport = () => {
     if (!report) return;
     const shareUrl = `${window.location.origin}/report/${report.id}`;
+    const viralText = getViralShareMessage(report.title);
     if (navigator.share) {
-      navigator.share({ title: report.title, text: `Corruption Report: ${report.title}`, url: shareUrl });
+      navigator.share({ title: report.title, text: viralText, url: shareUrl });
     } else {
-      navigator.clipboard.writeText(shareUrl);
-      alert('Link copied!');
+      navigator.clipboard.writeText(`${viralText}\n${shareUrl}`);
+      triggerToast('📋 লিঙ্ক কপি হয়েছে! শেয়ার করুন!');
     }
   };
 
@@ -150,9 +163,9 @@ export default function ReportDetailPage() {
   if (!report) return (
     <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
       <AlertCircle size={48} className="text-gray-300 mb-4" />
-      <h2 className="text-xl font-bold text-gray-900 mb-2">Report Not Found</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">রিপোর্ট পাওয়া যায়নি</h2>
       <button onClick={() => navigate(-1)} className="text-red-600 font-bold flex items-center gap-2">
-        <ArrowLeft size={18} /> Go Back
+        <ArrowLeft size={18} /> ফিরে যান
       </button>
     </div>
   );
@@ -166,7 +179,14 @@ export default function ReportDetailPage() {
   const canVote = !voted || isAdmin;
 
   return (
-    <div className="max-w-4xl mx-auto pb-24">
+    <div className="max-w-4xl mx-auto pb-24 relative">
+      {/* Toast */}
+      {showToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-gray-900 text-white text-sm font-bold px-6 py-3 rounded-full shadow-2xl animate-bounce">
+          {showToast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ArrowLeft size={24} /></button>
@@ -174,30 +194,24 @@ export default function ReportDetailPage() {
         <button onClick={shareReport} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><Share2 size={24} /></button>
       </div>
 
-      {/* Anonymous header */}
+      {/* Anonymous header with nickname */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-            <User size={20} className="text-gray-400" />
+          <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center">
+            <UserX size={20} className="text-red-500" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-800">বেনামী ব্যবহারকারী</p>
+            <p className="text-sm font-bold text-gray-800">{nickname}</p>
             <p className="text-[11px] text-gray-400 flex items-center gap-1"><Calendar size={12} /> {new Date(report.date).toLocaleDateString('bn-BD')}</p>
           </div>
         </div>
         <span className="px-3 py-1 bg-red-50 text-red-600 text-xs font-black rounded-full uppercase">{report.corruptionType}</span>
       </div>
 
-      {/* Full-width media with autoplay */}
+      {/* Media */}
       {mediaLinks.length > 0 && (
         <div className="w-full aspect-[4/3] bg-gray-100">
-          <Swiper
-            modules={[Autoplay, SwiperNavigation, Pagination]}
-            navigation
-            pagination={{ clickable: true }}
-            autoplay={{ delay: 4000, disableOnInteraction: true }}
-            className="h-full w-full"
-          >
+          <Swiper modules={[Autoplay, SwiperNavigation, Pagination]} navigation pagination={{ clickable: true }} autoplay={{ delay: 4000, disableOnInteraction: true }} className="h-full w-full">
             {mediaLinks.map((link, idx) => (
               <SwiperSlide key={idx}>{renderMedia(link, idx)}</SwiperSlide>
             ))}
@@ -227,7 +241,7 @@ export default function ReportDetailPage() {
           </button>
         </div>
 
-        {/* Share row */}
+        {/* Share */}
         <div className="flex gap-4 mb-6 pb-4 border-b border-gray-100">
           <button onClick={shareReport} className="text-gray-400 hover:text-red-600 transition-colors"><Share2 size={20} /></button>
           <button onClick={() => navigate(`/map?id=${report.id}`)} className="text-gray-400 hover:text-red-600 transition-colors"><MapPin size={20} /></button>
@@ -263,11 +277,8 @@ export default function ReportDetailPage() {
           <h3 className="text-base font-black text-gray-900 mb-3">অবস্থান</h3>
           <div className="rounded-2xl overflow-hidden border border-gray-200 h-48 relative">
             <div ref={mapRef} className="w-full h-full" />
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${report.latitude},${report.longitude}`}
-              target="_blank" rel="noopener noreferrer"
-              className="absolute bottom-3 right-3 z-[500] bg-white/90 backdrop-blur-sm text-gray-700 text-xs font-bold px-4 py-2 rounded-full shadow flex items-center gap-1.5"
-            >
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${report.latitude},${report.longitude}`} target="_blank" rel="noopener noreferrer"
+              className="absolute bottom-3 right-3 z-[500] bg-white/90 backdrop-blur-sm text-gray-700 text-xs font-bold px-4 py-2 rounded-full shadow flex items-center gap-1.5">
               <NavIcon size={14} /> গুগল ম্যাপে ডিরেকশন
             </a>
           </div>

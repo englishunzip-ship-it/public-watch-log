@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Share2, MapPin, ThumbsUp, ThumbsDown, HelpCircle, ExternalLink, X, Maximize2, Play } from 'lucide-react';
+import { ChevronDown, ChevronUp, Share2, MapPin, ThumbsUp, ThumbsDown, HelpCircle, ExternalLink, X, Maximize2, Play, UserX } from 'lucide-react';
 import { Report, VoteType } from '../types';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
@@ -9,17 +9,18 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
-import { generateNickname, generateAvatarColor } from '../lib/nicknames';
+import { generateNickname } from '../lib/nicknames';
+import { getViralShareMessage } from '../lib/shareMessages';
 
 export default function ReportCard({ report }: { report: Report }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const nickname = generateNickname(report.id);
-  const avatarColor = generateAvatarColor(report.id);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => setIsAdmin(!!user));
@@ -30,6 +31,11 @@ export default function ReportCard({ report }: { report: Report }) {
     const votedReports = JSON.parse(localStorage.getItem('votedReports') || '{}');
     if (votedReports[report.id]) setHasVoted(true);
   }, [report.id]);
+
+  const triggerToast = (msg: string) => {
+    setShowToast(msg);
+    setTimeout(() => setShowToast(null), 2500);
+  };
 
   const handleVote = async (type: VoteType) => {
     if (hasVoted && !isAdmin) return;
@@ -46,18 +52,21 @@ export default function ReportCard({ report }: { report: Report }) {
         localStorage.setItem('votedReports', JSON.stringify(votedReports));
         setHasVoted(true);
       }
+      triggerToast('✅ আপনার ভোট সফলভাবে জমা হয়েছে!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `reports/${report.id}`);
+      triggerToast('❌ ভোট দিতে সমস্যা হয়েছে!');
     }
   };
 
   const shareReport = () => {
     const shareUrl = `${window.location.origin}/report/${report.id}`;
+    const viralText = getViralShareMessage(report.title);
     if (navigator.share) {
-      navigator.share({ title: report.title, text: `দুর্নীতির রিপোর্ট: ${report.title}`, url: shareUrl });
+      navigator.share({ title: report.title, text: viralText, url: shareUrl });
     } else {
-      navigator.clipboard.writeText(shareUrl);
-      alert('লিঙ্ক কপি হয়েছে!');
+      navigator.clipboard.writeText(`${viralText}\n${shareUrl}`);
+      triggerToast('📋 লিঙ্ক কপি হয়েছে! শেয়ার করুন!');
     }
   };
 
@@ -111,13 +120,20 @@ export default function ReportCard({ report }: { report: Report }) {
   const hasMedia = report.evidenceLinks && report.evidenceLinks.length > 0;
 
   return (
-    <div className="bg-white overflow-hidden mb-2 md:mb-4 md:rounded-xl md:shadow-sm md:border md:border-gray-100 transition-all hover:shadow-md">
+    <div className="bg-white overflow-hidden mb-2 md:mb-0 md:rounded-xl md:shadow-sm md:border md:border-gray-100 transition-all hover:shadow-md relative">
+      {/* Toast */}
+      {showToast && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-full shadow-xl animate-bounce">
+          {showToast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-4 pt-3 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: avatarColor }}>
-              {nickname.charAt(0)}
+            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+              <UserX size={20} className="text-red-500" />
             </div>
             <div>
               <p className="text-sm font-bold text-gray-800">{nickname}</p>
@@ -174,7 +190,7 @@ export default function ReportCard({ report }: { report: Report }) {
         </button>
       </div>
 
-      {/* Expanded: evidence + description only (NO map preview) */}
+      {/* Expanded */}
       {isExpanded && (
         <div className="bg-gray-50 border-t border-gray-100">
           {hasMedia && (
